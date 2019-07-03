@@ -93,7 +93,6 @@ virtual void deserialize(InEngine& x) override
 
 ``````
 OutEngine oe;
-oe.resize(1024); // 可选：设置缓冲区大小
 oe << box << box3;
 ``````
 
@@ -110,21 +109,13 @@ ie >> box2 >> box4;
 
 
 
-如果需要增加更多类型的支持，使用下列代码即可
+如果需要增加更多类型的支持，重新实现下列函数即可
 
 ``````c++
 // 自定义类型扩展
 template<>
-void serialize(OutEngine& x, long& a)
-{
-    long c = htonl(a);
-    x.write((const char*)&c, sizeof(c));
-}
+void serialize(OutEngine& x, Any& a)
 
 template<>
-void deserialize(InEngine& x, long* c)
-{
-    x.read(c, sizeof(*c));
-    *c=ntohl(*c);
-}
+void deserialize(InEngine& x, Any* c)
 ``````

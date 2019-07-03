@@ -2,8 +2,6 @@
 
 #include <string>
 
-using namespace std;
-
 class OutEngine;
 class InEngine;
 
@@ -87,7 +85,7 @@ private:
 class InEngine
 {
 public:
-    InEngine(const string& s) {
+    InEngine(const std::string& s) {
         reset(s.data(), s.size(), true);
     }
     
@@ -117,11 +115,7 @@ public:
         n_size = size;
     }
     
-    void read(void* dst, size_t size)
-    {
-        memcpy(dst, is, size);
-        is += size;
-    }
+    
     
 //    inline
 //    size_t donesize() const
@@ -131,6 +125,17 @@ public:
     
     template<typename SerializableType>
     InEngine& operator >> (SerializableType& a) ;
+    
+protected:
+    
+    void read(void* dst, size_t size)
+    {
+        memcpy(dst, is, size);
+        is += size;
+    }
+    
+    template<typename T>
+    friend void deserialize(InEngine& x, T* a);
     
 private:
     
@@ -170,14 +175,14 @@ void deserialize(InEngine& x, T* a)
 // 匹配基础类型
 /// string
 template<>
-void serialize(OutEngine& x, string& a)
+void serialize(OutEngine& x, std::string& a)
 {
     int len = (int)a.size();
     x.write(&len, sizeof(len));
     x.write(a.data(), a.size());
 }
 template<>
-void deserialize(InEngine& x, string* a)
+void deserialize(InEngine& x, std::string* a)
 {
     int len;
     x.read(&len, sizeof(len));
@@ -196,8 +201,7 @@ void serialize(OutEngine& x, Type& a) \
 #define _LARGETAIL_DATA_DESERIALIZE(Type) template<> \
 void deserialize(InEngine& x, Type* c) \
 { \
-    int cpySize = sizeof(*c); \
-    x.read(c, cpySize); \
+    x.read(c, sizeof(*c)); \
     *c=ntohl(*c); \
 }
 
