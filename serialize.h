@@ -24,15 +24,8 @@ public:
     // 重设缓冲区大小
     void resize(size_t size)
     {
-        size_t dstSize = usingSize + size;
-        if (dstSize > memSize)
-        {
-            memSize += dstSize + INS_SIZE;
-            void *tmp = malloc(memSize);
-            memcpy(tmp, mem, usingSize);
-            freeMem();
-            mem = (char*)tmp;
-        }
+        clear();
+        adaptSize(size);
     }
     
     // 数据内存
@@ -41,7 +34,7 @@ public:
     // 数据尺寸
     size_t size() const { return usingSize; }
     
-    // 清除数据
+    // 清除缓冲区
     void clear()
     {
         memSize = 0;
@@ -57,7 +50,7 @@ protected:
     // 追加数据
     void write(const void* data, size_t size)
     {
-        resize(size);
+        adaptSize(size);
         memcpy(&mem[usingSize], data, size);
         usingSize += size;
     }
@@ -66,6 +59,20 @@ protected:
     friend void serialize(OutEngine& x, T& a);
     
 private:
+    
+    // 适应附加的尺寸
+    void adaptSize(size_t size)
+    {
+        size_t dstSize = usingSize + size;
+        if (dstSize > memSize)
+        {
+            memSize += dstSize + INS_SIZE;
+            void *tmp = malloc(memSize);
+            memcpy(tmp, mem, usingSize);
+            freeMem();
+            mem = (char*)tmp;
+        }
+    }
     
     void freeMem()
     {
