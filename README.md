@@ -10,7 +10,7 @@ https://github.com/Kiritow/WarTime-Project/blob/master/frame/serialize.h
 
 
 
-考虑到序列化需要高性能代码，优化了代码，去掉冗余内存拷贝，使得效率提升了10倍以上。
+考虑到序列化需要高性能代码，于是进行优化，用C语言重写STL部分，使得效率提升了10倍以上
 
 在本人电脑上执行100w次序列化/反序列化，代码如下：
 
@@ -87,6 +87,25 @@ virtual void deserialize(InEngine& x) override
 {
 	x >> a >> b >> str;
 }
+``````
+
+序列化
+
+``````
+OutEngine oe;
+oe.resize(1024); // 可选：设置缓冲区大小
+oe << box << box3;
+``````
+
+反序列化
+
+``````
+cbox box2, box4;
+
+const void* data = oe.data();
+InEngine ie(data, oe.size());
+
+ie >> box2 >> box4;
 ``````
 
 
