@@ -55,9 +55,19 @@ float time = (std::chrono::steady_clock::now() - t).count() / 1.e9;
 printf("用时 %f\n", time);
 ``````
 
+Debug
+
 优化前 6.181744s  
 
 优化后 0.457298s
+
+Release
+
+优化前 3.367076s
+
+优化后 0.115770s
+
+(没有错，30倍性能提升！)
 
 
 
