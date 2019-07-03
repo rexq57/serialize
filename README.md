@@ -10,9 +10,9 @@ https://github.com/Kiritow/WarTime-Project/blob/master/frame/serialize.h
 
 
 
-考虑到序列化需要高性能代码，于是进行优化，用C语言重写STL部分，使得效率提升了10倍以上
+考虑到序列化需要高性能代码，于是进行优化，用C语言重写STL部分，使得效率提升了30倍(对比boost也是如此)
 
-在本人电脑上执行100w次序列化/反序列化，代码如下：
+在本人电脑上执行100w次序列化/反序列化对比，代码如下：
 
 ``````c++
 cbox box;
@@ -30,25 +30,34 @@ int testCount = 1000000;
 
 for (int i=0; i<testCount; i++) {
 
-#ifdef OLD_VERSION
+  cbox box2, box4;
+
+#if TEST_VERSION == 0 // STL版本
   OutEngine oe;
   oe << box << box3;
-
-  cbox box2, box4;
 
   const string& b = oe.str();
   InEngine ie(b);
-#else
-  OutEngine oe;
-  oe.resize(1024);
-  oe << box << box3;
 
-  cbox box2, box4;
+#elif TEST_VERSION == 1 // 优化版本
+  OutEngine oe;
+  oe.resize(1024); // 可选：预设缓冲区
+  oe << box << box3;
 
   const void* data = oe.data();
   InEngine ie(data, oe.size());
+
+#elif TEST_VERSION == 2 // boost版本
+  std::ostringstream os;
+  boost::archive::binary_oarchive oa(os);
+  oa << box << box3;
+
+  const std::string& content = os.str();
+
+  std::istringstream is(content);
+  boost::archive::binary_iarchive ie(is);
 #endif
-	ie >> box2 >> box4;
+  ie >> box2 >> box4;
 }
 
 float time = (std::chrono::steady_clock::now() - t).count() / 1.e9;
@@ -59,15 +68,19 @@ Debug
 
 优化前 6.181744s  
 
-优化后 0.457298s
+优化后 0.457298s (预设缓冲区) 0.703428s(不预设缓冲区)
+
+boost 4.910393s 
 
 Release
 
 优化前 3.367076s
 
-优化后 0.115770s
+优化后 0.115770s (预设缓冲区) 0.368046s(不预设缓冲区)
 
-(没有错，30倍性能提升！)
+boost 3.255476s
+
+在预设缓冲区的情况下可以达到30倍性能提升！相当于依次对每个已定义的数据类型成员调用memcpy，所以速度快。而boost由于实现复杂，性能也比较差。
 
 
 
@@ -117,7 +130,12 @@ InEngine ie(data, oe.size());
 ie >> box2 >> box4;
 ``````
 
+（可选）预设缓冲区，定义一个足够大的缓冲区，以避免序列化过程中的重复内存申请和拷贝
 
+``````
+OutEngine oe;
+oe.resize(1024);
+``````
 
 如果需要增加更多类型的支持，重新实现下列函数即可
 
