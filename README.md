@@ -87,6 +87,10 @@ boost 3.255476s
 用法比较简单，只需要继承自Serializable即可
 
 ``````c++
+#include <serialize.h>
+
+using namespace serialize;
+
 class cbox : public Serializable
 {
 public:
