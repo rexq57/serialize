@@ -83,7 +83,7 @@ private:
         }
     }
     
-    const int INS_SIZE = sizeof(size_t);
+    const int INS_SIZE = sizeof(size_t) * 2;
     size_t memSize = 0;
     size_t usingSize = 0;
     char* mem = 0;
