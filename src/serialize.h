@@ -33,8 +33,8 @@ namespace serialize {
             freeMem();
         }
         
-        template<typename SerializableType>
-        OutEngine& operator << (SerializableType& a);
+//        template<typename SerializableType>
+//        OutEngine& operator << (SerializableType& a);
         
     protected:
         
@@ -121,8 +121,8 @@ namespace serialize {
         //        return n_size-leftsize();
         //    }
         
-        template<typename SerializableType>
-        InEngine& operator >> (SerializableType& a) ;
+//        template<typename SerializableType>
+//        InEngine& operator >> (SerializableType& a) ;
         
     protected:
         
@@ -166,13 +166,17 @@ namespace serialize {
         virtual void deserialize(InEngine& x) = 0;
     };
     
+    //////////////////////////////////////////////////////////////////////////
+    
     // 泛型匹配类实现
     template<typename T>
+    inline
     void serialize(OutEngine& x, T& a)
     {
         a.serialize(x);
     }
     template<typename T>
+    inline
     void deserialize(InEngine& x, T* a)
     {
         return a->deserialize(x);
@@ -181,13 +185,16 @@ namespace serialize {
     // 匹配基础类型
     /// string
     template<>
+    inline
     void serialize(OutEngine& x, std::string& a)
     {
         int len = (int)a.size();
         x.write(&len, sizeof(len));
         x.write(a.data(), a.size());
     }
+    
     template<>
+    inline
     void deserialize(InEngine& x, std::string* a)
     {
         int len;
@@ -197,26 +204,26 @@ namespace serialize {
     }
     
     /// Marco definition
-#define _LARGETAIL_DATA_SERIALIZE(Type) template<> \
+#define _LARGETAIL_DATA_SERIALIZE(Type) template<> inline \
 void serialize(OutEngine& x, Type& a) \
 { \
 Type c=htonl(a); \
 x.write((const char*)&c, sizeof(c)); \
 }
     
-#define _LARGETAIL_DATA_DESERIALIZE(Type) template<> \
+#define _LARGETAIL_DATA_DESERIALIZE(Type) template<> inline \
 void deserialize(InEngine& x, Type* c) \
 { \
 x.read(c, sizeof(*c)); \
 *c=ntohl(*c); \
 }
     
-#define _NORMAL_DATA_SERIALIZE(Type) template<> \
+#define _NORMAL_DATA_SERIALIZE(Type) template<> inline \
 void serialize(OutEngine& x, Type& a) \
 { \
 x.write((const char*)&a,sizeof(a)); \
 }
-#define _NORMAL_DATA_DESERIALIZE(Type) template<> \
+#define _NORMAL_DATA_DESERIALIZE(Type) template<> inline \
 void deserialize(InEngine& x, Type* a)\
 { \
 x.read(a, sizeof(*a)); \
@@ -232,17 +239,19 @@ x.read(a, sizeof(*a)); \
     NORMAL_DATA_SERIALIZE(char)
     
     template<typename SerializableType>
-    OutEngine& OutEngine::operator << (SerializableType& a)
+    inline
+    OutEngine& operator << (OutEngine& ths, SerializableType& a)
     {
-        serialize::serialize(*this, a);
-        return *this;
+        serialize::serialize(ths, a);
+        return ths;
     }
     
     template<typename SerializableType>
-    InEngine& InEngine::operator >> (SerializableType& a)
+    inline
+    InEngine& operator >> (InEngine& ths, SerializableType& a)
     {
-        serialize::deserialize(*this, &a);
-        return *this;
+        serialize::deserialize(ths, &a);
+        return ths;
     }
     
     ////////////////////////////////////////////////////////////
