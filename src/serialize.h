@@ -1,5 +1,7 @@
 #pragma once
 
+#include <vector>
+#include <map>
 #include <string>
 
 namespace serialize {
@@ -33,9 +35,6 @@ namespace serialize {
             freeMem();
         }
         
-//        template<typename SerializableType>
-//        OutEngine& operator << (SerializableType& a);
-        
     protected:
         
         // 追加数据
@@ -47,7 +46,7 @@ namespace serialize {
         }
         
         template<typename T>
-        friend void serialize(OutEngine& x, T& a);
+        friend void serialize(OutEngine& x, const T& a);
         
     private:
         
@@ -83,9 +82,6 @@ namespace serialize {
     class InEngine
     {
     public:
-        InEngine(const std::string& s) {
-            reset(s.data(), s.size(), true);
-        }
         
         InEngine(const void* data, size_t size) {
             reset(data, size, false);
@@ -120,9 +116,6 @@ namespace serialize {
         //    {
         //        return n_size-leftsize();
         //    }
-        
-//        template<typename SerializableType>
-//        InEngine& operator >> (SerializableType& a) ;
         
     protected:
         
@@ -162,50 +155,24 @@ namespace serialize {
     class Serializable
     {
     public:
-        virtual void serialize(OutEngine& x) = 0;
+        virtual void serialize(OutEngine& x) const = 0;
         virtual void deserialize(InEngine& x) = 0;
     };
     
+    // 符号重载 (声明)
+    
+    template<typename SerializableType>
+    OutEngine& operator << (OutEngine& ths, const SerializableType& a);
+    
+    template<typename SerializableType>
+    InEngine& operator >> (InEngine& ths, SerializableType& a);
+    
     //////////////////////////////////////////////////////////////////////////
     
-    // 泛型匹配类实现
-    template<typename T>
-    inline
-    void serialize(OutEngine& x, T& a)
-    {
-        a.serialize(x);
-    }
-    template<typename T>
-    inline
-    void deserialize(InEngine& x, T* a)
-    {
-        return a->deserialize(x);
-    }
-    
     // 匹配基础类型
-    /// string
-    template<>
-    inline
-    void serialize(OutEngine& x, std::string& a)
-    {
-        int len = (int)a.size();
-        x.write(&len, sizeof(len));
-        x.write(a.data(), a.size());
-    }
     
-    template<>
-    inline
-    void deserialize(InEngine& x, std::string* a)
-    {
-        int len;
-        x.read(&len, sizeof(len));
-        a->resize(len);
-        x.read((void*)a->data(), len);
-    }
-    
-    /// Marco definition
 #define _LARGETAIL_DATA_SERIALIZE(Type) template<> inline \
-void serialize(OutEngine& x, Type& a) \
+void serialize(OutEngine& x, const Type& a) \
 { \
 Type c=htonl(a); \
 x.write((const char*)&c, sizeof(c)); \
@@ -219,7 +186,7 @@ x.read(c, sizeof(*c)); \
 }
     
 #define _NORMAL_DATA_SERIALIZE(Type) template<> inline \
-void serialize(OutEngine& x, Type& a) \
+void serialize(OutEngine& x, const Type& a) \
 { \
 x.write((const char*)&a,sizeof(a)); \
 }
@@ -234,20 +201,116 @@ x.read(a, sizeof(*a)); \
     
     LARGETAIL_DATA_SERIALIZE(int)
     LARGETAIL_DATA_SERIALIZE(long)
-    NORMAL_DATA_SERIALIZE(double)
     NORMAL_DATA_SERIALIZE(float)
+    NORMAL_DATA_SERIALIZE(double)
     NORMAL_DATA_SERIALIZE(char)
     
-    template<typename SerializableType>
+    // string
+    template<>
     inline
-    OutEngine& operator << (OutEngine& ths, SerializableType& a)
+    void serialize(OutEngine& x, const std::string& a)
+    {
+        int len = (int)a.size();
+        x << len;
+        x.write(a.data(), a.size());
+    }
+    
+    template<>
+    inline
+    void deserialize(InEngine& x, std::string* a)
+    {
+        int len;
+        x >> len;
+        a->resize(len);
+        x.read((void*)a->data(), len);
+    }
+    
+    // 基础类型 pair
+    template<class B, class C>
+    inline
+    void serialize(OutEngine& x, const std::pair<B, C>& a)
+    {
+        x << a.first << a.second;
+    }
+    
+    template<class B, class C>
+    inline
+    void deserialize(InEngine& x, std::pair<B, C>* a)
+    {
+        x >> a->first >> a->second;
+    }
+    
+    ////////////////////////////////////////////////////////////
+    
+    // 泛型匹配类 map 的数据
+    template <template<class, class, class, class> class A, class B, class C, class D, class E>
+    inline
+    void serialize(OutEngine& x, const A<B, C, D, E>& a) {
+        x << (int)a.size();
+        for (auto& t : a) {
+            x << t;
+        }
+    }
+    
+    template <template<class, class, class, class> class A, class B, class C, class D, class E>
+    inline
+    void deserialize(InEngine& x, A<B, C, D, E>* c) {
+        int size;
+        x >> size;
+        for (int i=0; i<size; i++) {
+            std::pair<B, C> p;
+            x >> p;
+            c->insert(p);
+        }
+    }
+    
+    
+    // 泛型匹配类 vector 的数据
+    template <template<class, class> class A, class B, class C>
+    inline
+    void serialize(OutEngine& x, const A<B, C>& a) {
+        x << (int)a.size();
+        for (auto& t : a) {
+            x << t;
+        }
+    }
+    
+    template <template<class, class> class A, class B, class C>
+    inline
+    void deserialize(InEngine& x, A<B, C>* c) {
+        int size;
+        x >> size;
+        c->resize(size);
+        for (int i=0; i<size; i++) {
+            x >> (*c)[i];
+        }
+    }
+    
+    // 泛型匹配类实现 (放在最后补漏)
+    template<typename T>
+    inline
+    void serialize(OutEngine& x, const T& a)
+    {
+        a.serialize(x);
+    }
+    template<typename T>
+    inline
+    void deserialize(InEngine& x, T* a)
+    {
+        return a->deserialize(x);
+    }
+    
+    ////////////////////////////////////////////////////////////
+    // 符号重载（凡是实现过的支持类型，都可以通过 >> << 符号来调用其实现过程）
+    
+    template<typename SerializableType>
+    OutEngine& operator << (OutEngine& ths, const SerializableType& a)
     {
         serialize::serialize(ths, a);
         return ths;
     }
     
     template<typename SerializableType>
-    inline
     InEngine& operator >> (InEngine& ths, SerializableType& a)
     {
         serialize::deserialize(ths, &a);
@@ -255,9 +318,10 @@ x.read(a, sizeof(*a)); \
     }
     
     ////////////////////////////////////////////////////////////
+    // 内建宏
     
 #define _SERIALIZE(...) \
-virtual void serialize(OutEngine& x) override {__VA_ARGS__;}
+virtual void serialize(OutEngine& x) const override {__VA_ARGS__;}
     
 #define _DESERIALIZE(...) \
 virtual void deserialize(InEngine& x) override {__VA_ARGS__;}
@@ -272,4 +336,6 @@ virtual void deserialize(InEngine& x) override {__VA_ARGS__;}
 #define SERIALIZE_5(a, b, c, d, e) _SERIALIZE(_SE_ADD(a), _SE_ADD(b), _SE_ADD(c), _SE_ADD(d), _SE_ADD(e)) _DESERIALIZE(_DES_ADD(a), _DES_ADD(b), _DES_ADD(c), _DES_ADD(d), _DES_ADD(e))
 #define SERIALIZE_6(a, b, c, d, e, f) _SERIALIZE(_SE_ADD(a), _SE_ADD(b), _SE_ADD(c), _SE_ADD(d), _SE_ADD(e), _SE_ADD(f)) _DESERIALIZE(_DES_ADD(a), _DES_ADD(b), _DES_ADD(c), _DES_ADD(d), _DES_ADD(e), _DES_ADD(f))
 #define SERIALIZE_7(a, b, c, d, e, f, g) _SERIALIZE(_SE_ADD(a), _SE_ADD(b), _SE_ADD(c), _SE_ADD(d), _SE_ADD(e), _SE_ADD(f), _SE_ADD(g)) _DESERIALIZE(_DES_ADD(a), _DES_ADD(b), _DES_ADD(c), _DES_ADD(d), _DES_ADD(e), _DES_ADD(f), _DES_ADD(g))
+#define SERIALIZE_8(a, b, c, d, e, f, g, h) _SERIALIZE(_SE_ADD(a), _SE_ADD(b), _SE_ADD(c), _SE_ADD(d), _SE_ADD(e), _SE_ADD(f), _SE_ADD(g), _SE_ADD(h)) _DESERIALIZE(_DES_ADD(a), _DES_ADD(b), _DES_ADD(c), _DES_ADD(d), _DES_ADD(e), _DES_ADD(f), _DES_ADD(g), _DES_ADD(h))
+#define SERIALIZE_9(a, b, c, d, e, f, g, h, i) _SERIALIZE(_SE_ADD(a), _SE_ADD(b), _SE_ADD(c), _SE_ADD(d), _SE_ADD(e), _SE_ADD(f), _SE_ADD(g), _SE_ADD(h), _SE_ADD(i)) _DESERIALIZE(_DES_ADD(a), _DES_ADD(b), _DES_ADD(c), _DES_ADD(d), _DES_ADD(e), _DES_ADD(f), _DES_ADD(g), _DES_ADD(h), _DES_ADD(i))
 };

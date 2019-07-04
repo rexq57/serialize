@@ -66,25 +66,27 @@ printf("用时 %f\n", time);
 
 Debug
 
+``````
 优化前 6.181744s  
-
 优化后 0.457298s (预设缓冲区) 0.609616s(不预设缓冲区)
-
 boost 4.910393s 
+``````
 
 Release
 
+``````
 优化前 3.367076s
-
 优化后 0.115770s (预设缓冲区) 0.225578s(不预设缓冲区)
-
 boost 3.255476s
+``````
 
 在预设缓冲区的情况下可以达到30倍性能提升！相当于依次对每个已定义的数据类型成员调用memcpy，所以速度快。而boost由于实现复杂，性能也比较差。以上测试代码包含重复创建临时变量，影响测试准确度，但使用istringstream、string等STL模块的初始化和拷贝是造成性能底下的直接原因，使用C函数代替就不会有这个问题，在性能要求高的地方尽可能避免使用STL。
 
 
 
-用法比较简单，只需要继承自Serializable即可
+## 用法
+
+只需要继承自Serializable即可
 
 ``````c++
 #include <serialize.h>
@@ -141,13 +143,26 @@ OutEngine oe;
 oe.resize(1024);
 ``````
 
+支持的序列化类型
+
+``````
+int
+long
+float
+double
+char
+std::string
+std::vector
+std::map
+``````
+
 如果需要增加更多类型的支持，重新实现下列函数即可
 
 ``````c++
-// 自定义类型扩展
 template<>
 void serialize(OutEngine& x, Any& a)
 
 template<>
 void deserialize(InEngine& x, Any* c)
 ``````
+
