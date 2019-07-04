@@ -83,8 +83,8 @@ namespace serialize {
     {
     public:
         
-        InEngine(const void* data, size_t size) {
-            reset(data, size, false);
+        InEngine(const void* data, size_t size, bool copy=false) {
+            reset(data, size, copy);
         }
         
         virtual ~InEngine() {
