@@ -4,17 +4,6 @@
 
 namespace serialize {
     
-    class OutEngine;
-    class InEngine;
-    
-    // 序列化对象需要实现该接口
-    class Serializable
-    {
-    public:
-        virtual void serialize(OutEngine& x) = 0;
-        virtual void deserialize(InEngine& x) = 0;
-    };
-    
     class OutEngine
     {
     public:
@@ -169,6 +158,14 @@ namespace serialize {
         bool assign = false;
     };
     
+    // 序列化对象需要实现该接口
+    class Serializable
+    {
+    public:
+        virtual void serialize(OutEngine& x) = 0;
+        virtual void deserialize(InEngine& x) = 0;
+    };
+    
     // 泛型匹配类实现
     template<typename T>
     void serialize(OutEngine& x, T& a)
@@ -266,4 +263,4 @@ virtual void deserialize(InEngine& x) override {__VA_ARGS__;}
 #define SERIALIZE_5(a, b, c, d, e) _SERIALIZE(_SE_ADD(a), _SE_ADD(b), _SE_ADD(c), _SE_ADD(d), _SE_ADD(e)) _DESERIALIZE(_DES_ADD(a), _DES_ADD(b), _DES_ADD(c), _DES_ADD(d), _DES_ADD(e))
 #define SERIALIZE_6(a, b, c, d, e, f) _SERIALIZE(_SE_ADD(a), _SE_ADD(b), _SE_ADD(c), _SE_ADD(d), _SE_ADD(e), _SE_ADD(f)) _DESERIALIZE(_DES_ADD(a), _DES_ADD(b), _DES_ADD(c), _DES_ADD(d), _DES_ADD(e), _DES_ADD(f))
 #define SERIALIZE_7(a, b, c, d, e, f, g) _SERIALIZE(_SE_ADD(a), _SE_ADD(b), _SE_ADD(c), _SE_ADD(d), _SE_ADD(e), _SE_ADD(f), _SE_ADD(g)) _DESERIALIZE(_DES_ADD(a), _DES_ADD(b), _DES_ADD(c), _DES_ADD(d), _DES_ADD(e), _DES_ADD(f), _DES_ADD(g))
-    }
+};

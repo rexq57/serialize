@@ -18,9 +18,4 @@ Pod::Spec.new do |s|
   s.header_mappings_dir = 'src/**/*'
   s.source_files = 'src/**/*{h,hpp,c,cc,cpp,mm,m}'
 
-  s.xcconfig = {
-    'CLANG_CXX_LANGUAGE_STANDARD' => 'c++11',
-    'CLANG_CXX_LIBRARY' => 'libc++'
-  }
-
 end
