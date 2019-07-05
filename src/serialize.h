@@ -35,8 +35,6 @@ namespace serialize {
             freeMem();
         }
         
-//    protected:
-        
         // 追加数据
         void write(const void* data, size_t size)
         {
@@ -44,9 +42,6 @@ namespace serialize {
             memcpy(&mem[usingSize], data, size);
             usingSize += size;
         }
-        
-        template<typename T>
-        friend void serialize(OutEngine& x, const T& a);
         
     private:
         
@@ -109,24 +104,17 @@ namespace serialize {
             n_size = size;
         }
         
-        
-        
         //    inline
         //    size_t donesize() const
         //    {
         //        return n_size-leftsize();
         //    }
         
-//    protected:
-        
         void read(void* dst, size_t size)
         {
             memcpy(dst, is, size);
             is += size;
         }
-        
-        template<typename T>
-        friend void deserialize(InEngine& x, T* a);
         
     private:
         
@@ -170,13 +158,28 @@ namespace serialize {
     //////////////////////////////////////////////////////////////////////////
     // 支持的数据类型匹配
     
+#ifdef _WIN32
+    //        little = 0,
+    //        big    = 1,
+    //        native = little
+#define IS_BIG_ENDIAN (native == 1)
+#else
+    //        little = __ORDER_LITTLE_ENDIAN__,
+    //        big    = __ORDER_BIG_ENDIAN__,
+    //        native = __BYTE_ORDER__
+#define IS_BIG_ENDIAN (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
+#endif
+    
     template< class T >
     struct is_htonl
     : std::integral_constant<
     bool,
+#if !IS_BIG_ENDIAN
     std::is_integral<typename std::remove_cv<T>::type>::value &&
+#endif
     !std::is_same<char, typename std::remove_cv<T>::type>::value
     > {};
+
     
     // int、long 等需要转换为大端字节
     template<typename T, std::enable_if_t<is_htonl<T>::value, int> = 0> inline
@@ -197,6 +200,9 @@ namespace serialize {
     struct is_normal
     : std::integral_constant<
     bool,
+#if IS_BIG_ENDIAN
+    std::is_integral<typename std::remove_cv<T>::type>::value ||
+#endif
     std::is_floating_point<typename std::remove_cv<T>::type>::value ||
     std::is_same<char, typename std::remove_cv<T>::type>::value
     > {};
