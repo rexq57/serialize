@@ -35,7 +35,7 @@ namespace serialize {
             freeMem();
         }
         
-    protected:
+//    protected:
         
         // 追加数据
         void write(const void* data, size_t size)
@@ -117,7 +117,7 @@ namespace serialize {
         //        return n_size-leftsize();
         //    }
         
-    protected:
+//    protected:
         
         void read(void* dst, size_t size)
         {
@@ -169,6 +169,20 @@ namespace serialize {
     
     //////////////////////////////////////////////////////////////////////////
     
+    // 泛型匹配类实现
+    template<typename T>
+    inline
+    void serialize(OutEngine& x, const T& a)
+    {
+        a.serialize(x);
+    }
+    template<typename T>
+    inline
+    void deserialize(InEngine& x, T* a)
+    {
+        return a->deserialize(x);
+    }
+    
     // 匹配基础类型
     
 #define _LARGETAIL_DATA_SERIALIZE(Type) template<> inline \
@@ -204,6 +218,43 @@ x.read(a, sizeof(*a)); \
     NORMAL_DATA_SERIALIZE(float)
     NORMAL_DATA_SERIALIZE(double)
     NORMAL_DATA_SERIALIZE(char)
+    
+//    template<typename T, std::enable_if_t<std::is_integral<typename std::remove_cv<T>::type>::value, int> = 0> inline
+//    void serialize(OutEngine& x, const T& a)
+//    {
+//        //        a.serialize(x);
+//    }
+//    template<typename T, std::enable_if_t<std::is_integral<typename std::remove_cv<T>::type>::value, int> = 0> inline
+//    void deserialize(InEngine& x, T* a)
+//    {
+//        //        return a->deserialize(x);
+//    }
+    
+//    template<typename T, std::enable_if_t<std::is_same<int, typename std::remove_cv<T>::type>::value, int> = 0> inline
+//    void serialize(OutEngine& x, const T& a)
+//    {
+//        //        a.serialize(x);
+//    }
+//    template<typename T, std::enable_if_t<std::is_same<int, typename std::remove_cv<T>::type>::value, int> = 0> inline
+//    void deserialize(InEngine& x, T* a)
+//    {
+//        //        return a->deserialize(x);
+//    }
+    
+    // 浮点等类型
+//    template<typename T, std::enable_if_t<std::is_floating_point<T>::value, int> = 0> inline
+//    void serialize(OutEngine& x, const T& a)
+//    {
+//        x.write((const char*)&a,sizeof(a));
+//    }
+//    template<typename T, std::enable_if_t<std::is_floating_point<T>::value, int> = 0> inline
+//    void deserialize(InEngine& x, T* a)
+//    {
+//        x.read(a, sizeof(*a));
+//    }
+    
+    
+    
     
     // string
     template<>
@@ -286,19 +337,49 @@ x.read(a, sizeof(*a)); \
         }
     }
     
-    // 泛型匹配类实现 (放在最后补漏)
-    template<typename T>
-    inline
-    void serialize(OutEngine& x, const T& a)
-    {
-        a.serialize(x);
-    }
-    template<typename T>
-    inline
-    void deserialize(InEngine& x, T* a)
-    {
-        return a->deserialize(x);
-    }
+//    template <template<class, class> class A, class B, class C, std::enable_if_t<std::is_integral<B>::value, int> = 0>
+//    inline
+//    void serialize(OutEngine& x, const A<B, C>& a) {
+//        x << (int)a.size();
+//        for (auto& t : a) {
+//            x << t;
+//        }
+//    }
+//
+//    template <template<class, class> class A, class B, class C, std::enable_if_t<std::is_integral<B>::value, int> = 0>
+//    inline
+//    void deserialize(InEngine& x, A<B, C>* c) {
+//        int size;
+//        x >> size;
+//        c->resize(size);
+//        for (int i=0; i<size; i++) {
+//            x >> (*c)[i];
+//        }
+//    }
+    
+    
+    
+    
+
+    
+//    template< class T >
+//    struct is_Serializable;
+//
+//    template< class T >
+//    struct is_Serializable : std::is_base_of<Serializable, T> {};
+//
+//    template<typename T, std::enable_if_t<is_Serializable<T>::value, int> = 0> inline
+//    void serialize(OutEngine& x, const T& a)
+//    {
+//        a.serialize(x);
+//    }
+//    template<typename T, std::enable_if_t<is_Serializable<T>::value, int> = 0> inline
+//    void deserialize(InEngine& x, T* a)
+//    {
+//        return a->deserialize(x);
+//    }
+    
+    
     
     ////////////////////////////////////////////////////////////
     // 符号重载（凡是实现过的支持类型，都可以通过 >> << 符号来调用其实现过程）
