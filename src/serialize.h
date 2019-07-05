@@ -168,96 +168,54 @@ namespace serialize {
     InEngine& operator >> (InEngine& ths, SerializableType& a);
     
     //////////////////////////////////////////////////////////////////////////
+    // 支持的数据类型匹配
     
-    // 泛型匹配类实现
-    template<typename T>
-    inline
+    template< class T >
+    struct is_htonl
+    : std::integral_constant<
+    bool,
+    std::is_integral<typename std::remove_cv<T>::type>::value &&
+    !std::is_same<char, typename std::remove_cv<T>::type>::value
+    > {};
+    
+    // int、long 等需要转换为大端字节
+    template<typename T, std::enable_if_t<is_htonl<T>::value, int> = 0> inline
     void serialize(OutEngine& x, const T& a)
     {
-        a.serialize(x);
+        T c=htonl(a);
+        x.write((const char*)&c, sizeof(c));
     }
-    template<typename T>
-    inline
-    void deserialize(InEngine& x, T* a)
+    template<typename T, std::enable_if_t<is_htonl<T>::value, int> = 0> inline
+    void deserialize(InEngine& x, T* p)
     {
-        return a->deserialize(x);
+        x.read(p, sizeof(*p));
+        *p=ntohl(*p);
     }
     
-    // 匹配基础类型
+    // 直接读写
+    template< class T >
+    struct is_normal
+    : std::integral_constant<
+    bool,
+    std::is_floating_point<typename std::remove_cv<T>::type>::value ||
+    std::is_same<char, typename std::remove_cv<T>::type>::value
+    > {};
     
-#define _LARGETAIL_DATA_SERIALIZE(Type) template<> inline \
-void serialize(OutEngine& x, const Type& a) \
-{ \
-Type c=htonl(a); \
-x.write((const char*)&c, sizeof(c)); \
-}
+    template<typename T, std::enable_if_t<is_normal<T>::value, int> = 0> inline
+    void serialize(OutEngine& x, const T& a)
+    {
+        x.write((const char*)&a,sizeof(a));
+    }
+    template<typename T, std::enable_if_t<is_normal<T>::value, int> = 0> inline
+    void deserialize(InEngine& x, T* p)
+    {
+        x.read(p, sizeof(*p));
+    }
     
-#define _LARGETAIL_DATA_DESERIALIZE(Type) template<> inline \
-void deserialize(InEngine& x, Type* c) \
-{ \
-x.read(c, sizeof(*c)); \
-*c=ntohl(*c); \
-}
-    
-#define _NORMAL_DATA_SERIALIZE(Type) template<> inline \
-void serialize(OutEngine& x, const Type& a) \
-{ \
-x.write((const char*)&a,sizeof(a)); \
-}
-#define _NORMAL_DATA_DESERIALIZE(Type) template<> inline \
-void deserialize(InEngine& x, Type* a)\
-{ \
-x.read(a, sizeof(*a)); \
-}
-    
-#define LARGETAIL_DATA_SERIALIZE(Type) _LARGETAIL_DATA_SERIALIZE(Type) _LARGETAIL_DATA_DESERIALIZE(Type)
-#define NORMAL_DATA_SERIALIZE(Type) _NORMAL_DATA_SERIALIZE(Type) _NORMAL_DATA_DESERIALIZE(Type)
-    
-    LARGETAIL_DATA_SERIALIZE(int)
-    LARGETAIL_DATA_SERIALIZE(long)
-    NORMAL_DATA_SERIALIZE(float)
-    NORMAL_DATA_SERIALIZE(double)
-    NORMAL_DATA_SERIALIZE(char)
-    
-//    template<typename T, std::enable_if_t<std::is_integral<typename std::remove_cv<T>::type>::value, int> = 0> inline
-//    void serialize(OutEngine& x, const T& a)
-//    {
-//        //        a.serialize(x);
-//    }
-//    template<typename T, std::enable_if_t<std::is_integral<typename std::remove_cv<T>::type>::value, int> = 0> inline
-//    void deserialize(InEngine& x, T* a)
-//    {
-//        //        return a->deserialize(x);
-//    }
-    
-//    template<typename T, std::enable_if_t<std::is_same<int, typename std::remove_cv<T>::type>::value, int> = 0> inline
-//    void serialize(OutEngine& x, const T& a)
-//    {
-//        //        a.serialize(x);
-//    }
-//    template<typename T, std::enable_if_t<std::is_same<int, typename std::remove_cv<T>::type>::value, int> = 0> inline
-//    void deserialize(InEngine& x, T* a)
-//    {
-//        //        return a->deserialize(x);
-//    }
-    
-    // 浮点等类型
-//    template<typename T, std::enable_if_t<std::is_floating_point<T>::value, int> = 0> inline
-//    void serialize(OutEngine& x, const T& a)
-//    {
-//        x.write((const char*)&a,sizeof(a));
-//    }
-//    template<typename T, std::enable_if_t<std::is_floating_point<T>::value, int> = 0> inline
-//    void deserialize(InEngine& x, T* a)
-//    {
-//        x.read(a, sizeof(*a));
-//    }
-    
-    
-    
+    //////////////////////////////////////////////////////////////////////////
+    // 类
     
     // string
-    template<>
     inline
     void serialize(OutEngine& x, const std::string& a)
     {
@@ -266,7 +224,6 @@ x.read(a, sizeof(*a)); \
         x.write(a.data(), a.size());
     }
     
-    template<>
     inline
     void deserialize(InEngine& x, std::string* a)
     {
@@ -276,7 +233,25 @@ x.read(a, sizeof(*a)); \
         x.read((void*)a->data(), len);
     }
     
-    // 基础类型 pair
+    // Serializable
+    template< class T >
+    struct is_Serializable : std::is_base_of<Serializable, T> {};
+    
+    template<typename T, std::enable_if_t<is_Serializable<T>::value, int> = 0> inline
+    void serialize(OutEngine& x, const T& a)
+    {
+        a.serialize(x);
+    }
+    template<typename T, std::enable_if_t<is_Serializable<T>::value, int> = 0> inline
+    void deserialize(InEngine& x, T* a)
+    {
+        return a->deserialize(x);
+    }
+    
+    //////////////////////////////////////////////////////////////////////////
+    // 容器
+    
+    // pair
     template<class B, class C>
     inline
     void serialize(OutEngine& x, const std::pair<B, C>& a)
@@ -291,9 +266,7 @@ x.read(a, sizeof(*a)); \
         x >> a->first >> a->second;
     }
     
-    ////////////////////////////////////////////////////////////
-    
-    // 泛型匹配类 map 的数据
+    // map
     template <template<class, class, class, class> class A, class B, class C, class D, class E>
     inline
     void serialize(OutEngine& x, const A<B, C, D, E>& a) {
@@ -315,29 +288,8 @@ x.read(a, sizeof(*a)); \
         }
     }
     
-    
-    // 泛型匹配类 vector 的数据
-    template <template<class, class> class A, class B, class C>
-    inline
-    void serialize(OutEngine& x, const A<B, C>& a) {
-        x << (int)a.size();
-        for (auto& t : a) {
-            x << t;
-        }
-    }
-    
-    template <template<class, class> class A, class B, class C>
-    inline
-    void deserialize(InEngine& x, A<B, C>* c) {
-        int size;
-        x >> size;
-        c->resize(size);
-        for (int i=0; i<size; i++) {
-            x >> (*c)[i];
-        }
-    }
-    
-//    template <template<class, class> class A, class B, class C, std::enable_if_t<std::is_integral<B>::value, int> = 0>
+    // vector
+//    template <template<class, class> class A, class B, class C>
 //    inline
 //    void serialize(OutEngine& x, const A<B, C>& a) {
 //        x << (int)a.size();
@@ -346,7 +298,7 @@ x.read(a, sizeof(*a)); \
 //        }
 //    }
 //
-//    template <template<class, class> class A, class B, class C, std::enable_if_t<std::is_integral<B>::value, int> = 0>
+//    template <template<class, class> class A, class B, class C>
 //    inline
 //    void deserialize(InEngine& x, A<B, C>* c) {
 //        int size;
@@ -357,31 +309,44 @@ x.read(a, sizeof(*a)); \
 //        }
 //    }
     
-    
-    
-    
+    template <template<class, class> class A, class B, class C, std::enable_if_t<!is_normal<B>::value, int> = 0>
+    inline
+    void serialize(OutEngine& x, const A<B, C>& a) {
+        x << (int)a.size();
+        for (auto& t : a) {
+            x << t;
+        }
+    }
 
+    template <template<class, class> class A, class B, class C, std::enable_if_t<!is_normal<B>::value, int> = 0>
+    inline
+    void deserialize(InEngine& x, A<B, C>* c) {
+        int size;
+        x >> size;
+        c->resize(size);
+        for (int i=0; i<size; i++) {
+            x >> (*c)[i];
+        }
+    }
+
+    // vector 常规数据，直接连续读写
+    template <template<class, class> class A, class B, class C, std::enable_if_t<is_normal<B>::value, int> = 0>
+    inline
+    void serialize(OutEngine& x, const A<B, C>& a) {
+        x << (int)a.size();
+        x.write(&a[0], a.size() * sizeof(a[0]));
+    }
+
+    template <template<class, class> class A, class B, class C, std::enable_if_t<is_normal<B>::value, int> = 0>
+    inline
+    void deserialize(InEngine& x, A<B, C>* c) {
+        int size;
+        x >> size;
+        c->resize(size);
+        x.read(&(*c)[0], size * sizeof((*c)[0]));
+    }
     
-//    template< class T >
-//    struct is_Serializable;
-//
-//    template< class T >
-//    struct is_Serializable : std::is_base_of<Serializable, T> {};
-//
-//    template<typename T, std::enable_if_t<is_Serializable<T>::value, int> = 0> inline
-//    void serialize(OutEngine& x, const T& a)
-//    {
-//        a.serialize(x);
-//    }
-//    template<typename T, std::enable_if_t<is_Serializable<T>::value, int> = 0> inline
-//    void deserialize(InEngine& x, T* a)
-//    {
-//        return a->deserialize(x);
-//    }
-    
-    
-    
-    ////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////
     // 符号重载（凡是实现过的支持类型，都可以通过 >> << 符号来调用其实现过程）
     
     template<typename SerializableType>
@@ -398,7 +363,7 @@ x.read(a, sizeof(*a)); \
         return ths;
     }
     
-    ////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////
     // 内建宏
     
 #define _SERIALIZE(...) \
