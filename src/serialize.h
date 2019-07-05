@@ -162,38 +162,37 @@ namespace serialize {
     //        little = 0,
     //        big    = 1,
     //        native = little
-#define IS_BIG_ENDIAN (native == 1)
+#define IS_LITTLE_ENDIAN (native == 0)
 #else
     //        little = __ORDER_LITTLE_ENDIAN__,
     //        big    = __ORDER_BIG_ENDIAN__,
     //        native = __BYTE_ORDER__
-#define IS_BIG_ENDIAN (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
+#define IS_LITTLE_ENDIAN (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
 #endif
     
+#if IS_LITTLE_ENDIAN
     template< class T >
-    struct is_htonl
+    struct is_little_type
     : std::integral_constant<
     bool,
-#if !IS_BIG_ENDIAN
     std::is_integral<typename std::remove_cv<T>::type>::value &&
-#endif
     !std::is_same<char, typename std::remove_cv<T>::type>::value
     > {};
 
-    
-    // int、long 等需要转换为大端字节
-    template<typename T, std::enable_if_t<is_htonl<T>::value, int> = 0> inline
+    // 小端序处理
+    template<typename T, std::enable_if_t<is_little_type<T>::value, int> = 0> inline
     void serialize(OutEngine& x, const T& a)
     {
         T c=htonl(a);
         x.write((const char*)&c, sizeof(c));
     }
-    template<typename T, std::enable_if_t<is_htonl<T>::value, int> = 0> inline
+    template<typename T, std::enable_if_t<is_little_type<T>::value, int> = 0> inline
     void deserialize(InEngine& x, T* p)
     {
         x.read(p, sizeof(*p));
         *p=ntohl(*p);
     }
+#endif
     
     // 直接读写
     template< class T >
