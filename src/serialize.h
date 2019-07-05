@@ -199,7 +199,7 @@ namespace serialize {
     struct is_normal
     : std::integral_constant<
     bool,
-#if IS_BIG_ENDIAN
+#if !IS_LITTLE_ENDIAN
     std::is_integral<typename std::remove_cv<T>::type>::value ||
 #endif
     std::is_floating_point<typename std::remove_cv<T>::type>::value ||
