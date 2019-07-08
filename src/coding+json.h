@@ -38,6 +38,7 @@ namespace coding {
             _rebuildBuffer = true;
         }
         
+        template <>
         void encode(const std::string& str, const char* key)
         {
             _addValue(str.c_str(), key);
@@ -117,13 +118,11 @@ namespace coding {
             return std::shared_ptr<T>(obj);
         }
         
+        template<>
         const char* decode(const char* key)
         {
             return (*_doc)[key].GetString();
         }
-        
-        
-        
         
     private:
         

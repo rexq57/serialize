@@ -8,7 +8,6 @@ namespace coding {
         void encode(const T& value, const char* key);
     };
     
-    
     class Decoder {
     public:
         template<typename A, typename T> inline
