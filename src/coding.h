@@ -10,8 +10,18 @@
 
 namespace coding {
     
-    class Coder;
-    class Decoder;
+    class Coder {
+    public:
+        template<typename T> inline
+        void encode(const T& value, const char* key);
+    };
+    
+    
+    class Decoder {
+    public:
+        template<typename T> inline
+        T decode(const char* key);
+    };
     
     // 编码解码接口
     class Codable {
@@ -23,22 +33,24 @@ namespace coding {
     
     using namespace rapidjson;
     
-    class Coder {
+    
+    
+    class JsonCoder: public Coder {
         
     public:
-        Coder() {
+        JsonCoder() {
             _doc.SetObject(); // 必须设置
         };
         
         template<typename T, std::enable_if_t<!std::is_base_of<Codable, T>::value, int> = 0> inline
-        void encode(const T& value, const char* key)
-        {
+        void encode(const T& value, const char* key){
             _addValue(value, key);
-        }
+        };
         
-        void encode(const Codable& obj, const char* key)
+        template<typename T, std::enable_if_t<std::is_base_of<Codable, T>::value, int> = 0> inline
+        void encode(const T& obj, const char* key)
         {
-            Coder coder;
+            JsonCoder coder;
             obj.encodeWithCoder(&coder);
             Document& doc = coder._doc;
             
@@ -93,15 +105,15 @@ namespace coding {
         rapidjson::Document _doc;
     };
     
-    class Decoder {
+    class JsonDecoder: public Decoder {
         
     public:
         
-        Decoder(const char* json) : Decoder(new Document()) {
+        JsonDecoder(const char* json) : JsonDecoder(new Document()) {
             _doc->Parse(json);
         }
         
-        virtual ~Decoder()
+        virtual ~JsonDecoder()
         {
             if (!_assign && _doc)
                 delete _doc;
@@ -117,24 +129,24 @@ namespace coding {
         {
             return (*_doc)[key].GetString();
         }
-
+        
         
         template<typename T, std::enable_if_t<std::is_base_of<Codable, T>::value, int> = 0> inline
         std::shared_ptr<T> decode(const char* key)
         {
             T* obj = new T();
-
+            
             Value& doc = (*_doc)[key];
-            Decoder decoder((Document*)&doc, true);
-
+            JsonDecoder decoder((Document*)&doc, true);
+            
             if (!obj->initWithCoder(&decoder)) return 0;
-
+            
             return std::shared_ptr<T>(obj);
         }
-
+        
     private:
         
-        Decoder(Document* doc, bool assign=false)
+        JsonDecoder(Document* doc, bool assign=false)
         {
             _doc = doc;
             _assign = assign;
@@ -143,4 +155,33 @@ namespace coding {
         bool _assign = false;
         Document* _doc = 0;
     };
+    
+    template<typename T> inline
+    void encode(Coder* x, const T& value, const char* key)
+    {
+        ((JsonCoder*)x)->encode(value, key);
+    }
+    
+    template<typename T> inline
+    T decode(Decoder* x, const char* key)
+    {
+        return ((JsonDecoder*)x)->decode<T>(key);
+    }
+    
+    //////////////////////////////////////////////////////////////////////////
+    // Coder转发实现
+    template<typename T> inline
+    void Coder::encode(const T& value, const char* key)
+    {
+        coding::encode(this, value, key);
+    }
+    
+    template<typename T> inline
+    T Decoder::decode(const char* key)
+    {
+        return coding::decode<T>(this, key);
+    }
+    
+    //////////////////////////////////////////////////////////////////////////
+    
 };
