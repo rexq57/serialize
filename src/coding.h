@@ -97,37 +97,50 @@ namespace coding {
         
     public:
         
-        Decoder(const char* json) {
-            _doc.Parse(json);
+        Decoder(const char* json) : Decoder(new Document()) {
+            _doc->Parse(json);
+        }
+        
+        virtual ~Decoder()
+        {
+            if (!_assign && _doc)
+                delete _doc;
         }
         
         template<typename T, std::enable_if_t<!std::is_base_of<Codable, T>::value, int> = 0> inline
         T decode(const char* key)
         {
-            return _doc[key].Get<T>();
+            return (*_doc)[key].Get<T>();
         }
         
         const char* decode(const char* key)
         {
-            return _doc[key].GetString();
+            return (*_doc)[key].GetString();
+        }
+
+        
+        template<typename T, std::enable_if_t<std::is_base_of<Codable, T>::value, int> = 0> inline
+        std::shared_ptr<T> decode(const char* key)
+        {
+            T* obj = new T();
+
+            Value& doc = (*_doc)[key];
+            Decoder decoder((Document*)&doc, true);
+
+            if (!obj->initWithCoder(&decoder)) return 0;
+
+            return std::shared_ptr<T>(obj);
+        }
+
+    private:
+        
+        Decoder(Document* doc, bool assign=false)
+        {
+            _doc = doc;
+            _assign = assign;
         }
         
-//        template<typename T, std::enable_if_t<std::is_base_of<Codable, T>::value, int> = 0> inline
-//        std::shared_ptr<T> decode(const char* key)
-//        {
-//            T* obj = new T();
-//            
-//            Decoder decoder;
-//            
-//            
-//            if (!obj->initWithCoder(&_doc[key])) return 0;
-//            
-//            return std::shared_ptr<T>(obj);
-//        }
-        
-        
-        
-    private:
-        rapidjson::Document _doc;
+        bool _assign = false;
+        Document* _doc = 0;
     };
 };
