@@ -107,7 +107,6 @@ namespace coding {
                 _rebuildBuffer = false;
             }
             
-            
             return buffer.GetString();
         }
         
@@ -174,26 +173,26 @@ namespace coding {
                 delete _doc;
         }
         
-        template<typename T, std::enable_if_t<!std::is_base_of<Codable, T>::value
-        && !std::is_same<const char*, T>::value
-        && !std::is_same<std::string, T>::value
-        , int> = 0> inline
-        T decode(const char* key)
-        {
-            return (*_doc)[key].Get<T>();
-        }
-        
-        template<typename T, std::enable_if_t<std::is_base_of<Codable, T>::value, int> = 0> inline
+        // 常规类型 || 可编码
+        template<typename T, std::enable_if_t<is_normal<T>::value || std::is_base_of<Codable, T>::value, int> = 0> inline
         T decode(const char* key)
         {
             auto value = std::shared_ptr<T>(decodeAsPtr<T>(key));
             return *value.get();
         }
         
-        template<typename T, std::enable_if_t<!std::is_base_of<Codable, T>::value
-        && !std::is_same<const char*, T>::value
-        && !std::is_same<std::string, T>::value
-        , int> = 0> inline
+        // std字符串
+        template<typename T, std::enable_if_t<std::is_same<const char*, T>::value || std::is_same<std::string, T>::value, int> = 0> inline
+        const char* decode(const char* key)
+        {
+            return (*_doc)[key].GetString();
+        }
+        
+        //////////////////////////////////////////////////////////////////
+        // ptr
+        
+        // 常规类型
+        template<typename T, std::enable_if_t<is_normal<T>::value, int> = 0> inline
         T* decodeAsPtr(const char* key)
         {
             T* value = new T();
@@ -201,6 +200,7 @@ namespace coding {
             return value;
         }
         
+        // 可编码
         template<typename T, std::enable_if_t<std::is_base_of<Codable, T>::value, int> = 0> inline
         T* decodeAsPtr(const char* key)
         {
@@ -217,17 +217,21 @@ namespace coding {
             return obj;
         }
         
-        template<typename T, std::enable_if_t<std::is_same<const char*, T>::value || std::is_same<std::string, T>::value, int> = 0> inline
-        const char* decode(const char* key)
+        // 数组容器 - 常规
+        template <template<class, class> class A, class B, class C, std::enable_if_t<is_normal<B>::value, int> = 0> inline
+        A<B, C>* decodeAsPtr(const char* key)
         {
-            return (*_doc)[key].GetString();
-        }
-        
-        template <template<class, class> class A, class B, class C> inline
-        A<B, C> decode(const char* key)
-        {
-            auto value = std::shared_ptr<A<B,C>>(decodeAsPtr<A<B,C>>(key));
-            return *value.get();
+            A<B, C>* ret = new A<B, C>();
+
+            const auto& arr = (*_doc)[key].GetArray();
+            auto size = arr.Size();
+            ret.resize(size);
+            for (int i=0; i<size; i++)
+            {
+                ret[i] = arr[0];
+            }
+
+            return ret;
         }
         
 //        template <template<class, class> class A, class B, class C> inline
