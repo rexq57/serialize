@@ -33,8 +33,6 @@ namespace coding {
                 if (_doc)
                     delete _doc;
             }
-            
-            
         }
         
         template<typename T, std::enable_if_t<!std::is_base_of<Codable, T>::value, int> = 0> inline
@@ -181,7 +179,6 @@ namespace coding {
             return obj;
         }
         
-        
         template<typename T, std::enable_if_t<std::is_same<const char*, T>::value || std::is_same<std::string, T>::value, int> = 0>
         const char* decode(const char* key)
         {
@@ -200,22 +197,45 @@ namespace coding {
         Document* _doc = 0;
     };
     
-//    template<typename T> inline
-//    void encode(JsonCoder* x, const T& value, const char* key)
-//    {
-//        ((JsonCoder*)x)->encode(value, key);
-//    }
-////
-////    template<typename T, typename R = std::shared_ptr<T>> inline
-////    R decode(JsonDecoder* x, const char* key)
-////    {
-////        return ((JsonDecoder*)x)->decode<T>(key);
-////    }
-//    
-//    template<typename A, typename T> inline
-//    std::shared_ptr<T> decode(JsonDecoder* x, const char* key)
-//    {
-//        return 0;
-////        return ((A*)x)->template decode<T, R>(key);
-//    }
+    //////////////////////////////////////////////////////////////////////////
+    // Coder转发实现
+    template<typename T> inline
+    void Coder::encode(const T& value, const char* key)
+    {
+        JsonCoder* coder = dynamic_cast<JsonCoder*>(this);
+        if (coder)
+        {
+            coder->encode(value, key);
+            return;
+        }
+        
+        assert(!"error!");
+    }
+    
+    template<typename T> inline
+    T Decoder::decode(const char* key)
+    {
+        JsonDecoder* coder = dynamic_cast<JsonDecoder*>(this);
+        if (coder)
+        {
+            return coder->decode<T>(key);
+        }
+        
+        assert(!"error!");
+        return T();
+    }
+    
+    template<typename T> inline
+    T* Decoder::decodeAsPtr(const char* key)
+    {
+        JsonDecoder* coder = dynamic_cast<JsonDecoder*>(this);
+        if (coder)
+        {
+            return coder->decodeAsPtr<T>(key);
+        }
+        
+        assert(!"error!");
+        return 0;
+    }
+    //////////////////////////////////////////////////////////////////////////
 };
