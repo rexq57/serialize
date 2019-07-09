@@ -2,6 +2,7 @@
 
 namespace coding {
     
+    // 编码类
     class Coder {
     public:
         template<typename T> inline
@@ -11,13 +12,11 @@ namespace coding {
         virtual void e(){}; // 解决:'coding::Coder' is not polymorphic
     };
     
+    // 解码类
     class Decoder {
     public:
         template<typename T> inline
-        T decode(const char* key);
-        
-        template<typename T> inline
-        T* decodeAsPtr(const char* key);
+        void decode(const char* key, T* ret);
         
     private:
         virtual void e(){}; // 解决:'coding::Coder' is not polymorphic

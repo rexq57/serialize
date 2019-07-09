@@ -12,6 +12,8 @@
 
 namespace coding {
     
+    // 使用rapidjson的编码/解码实现
+    
     using namespace rapidjson;
     
     // 直接读写
@@ -30,20 +32,13 @@ namespace coding {
     public:
         JsonCoder() {
             _doc = new Document();
-            _doc->SetObject(); // 必须设置
+            _doc->SetObject(); // 必须设置为Object，Object = Dict
         };
         
         ~JsonCoder()
         {
-            if (_obj)
-            {
-                delete _obj;
-            }
-            else
-            {
-                if (_doc)
-                    delete _doc;
-            }
+            if (_obj) { delete _obj; }
+            else { if (_doc) delete _doc; }
         }
         
         // 常规类型
@@ -132,10 +127,7 @@ namespace coding {
             return _doc;
         }
         
-        inline Document* d()
-        {
-            return _doc;
-        }
+        inline Document* d() { return _doc; }
         
         // value
         template<typename T>
@@ -173,82 +165,70 @@ namespace coding {
                 delete _doc;
         }
         
-        // 常规类型 || 可编码
-        template<typename T, std::enable_if_t<is_normal<T>::value || std::is_base_of<Codable, T>::value, int> = 0> inline
-        T decode(const char* key)
-        {
-            auto value = std::shared_ptr<T>(decodeAsPtr<T>(key));
-            return *value.get();
-        }
-        
-        // std字符串
-        template<typename T, std::enable_if_t<std::is_same<const char*, T>::value || std::is_same<std::string, T>::value, int> = 0> inline
-        const char* decode(const char* key)
-        {
-            return (*_doc)[key].GetString();
-        }
-        
-        //////////////////////////////////////////////////////////////////
-        // ptr
-        
         // 常规类型
         template<typename T, std::enable_if_t<is_normal<T>::value, int> = 0> inline
-        T* decodeAsPtr(const char* key)
+        void decode(const char* key, T* ret)
         {
-            T* value = new T();
-            *value = (*_doc)[key].Get<T>();
-            return value;
+            *ret = (*_doc)[key].Get<T>();
         }
         
         // 可编码
         template<typename T, std::enable_if_t<std::is_base_of<Codable, T>::value, int> = 0> inline
-        T* decodeAsPtr(const char* key)
+        void decode(const char* key, T* ret)
         {
             if (!_doc->HasMember(key))
-                return 0;
-            
-            T* obj = new T();
-            
+            {
+                assert(!"不存在该成员！");
+                return;
+            }
+
             Value& doc = (*_doc)[key];
             JsonDecoder decoder((Document*)&doc, true);
-            
-            if (!obj->initWithCoder(&decoder)) {assert(!"error"); return 0;}
-            
-            return obj;
+
+            if (!ret->initWithCoder(&decoder)) {
+                assert(!"error");
+                return;
+            }
+        }
+        
+        // std字符串
+        void decode(const char* key, std::string* ret)
+        {
+            *ret = (*_doc)[key].GetString();
         }
         
         // 数组容器 - 常规
         template <template<class, class> class A, class B, class C, std::enable_if_t<is_normal<B>::value, int> = 0> inline
-        A<B, C>* decodeAsPtr(const char* key)
+        void decode(const char* key, A<B, C>* ret)
         {
-            A<B, C>* ret = new A<B, C>();
-
             const auto& arr = (*_doc)[key].GetArray();
             auto size = arr.Size();
-            ret.resize(size);
+            ret->resize(size);
             for (int i=0; i<size; i++)
             {
-                ret[i] = arr[0];
+                (*ret)[i] = arr[i].Get<B>();
             }
-
-            return ret;
         }
         
-//        template <template<class, class> class A, class B, class C> inline
-//        A<B, C>* decodeAsPTR(const char* key)
-//        {
-//            A<B, C>* ret = new A<B, C>();
-//
-//            const auto& arr = (*_doc)[key].GetArray();
-//            auto size = arr.Size();
-//            ret.resize(size);
-//            for (int i=0; i<size; i++)
-//            {
-//                ret[i] = arr[0];
-//            }
-//
-//            return ret;
-//        }
+        // 数组容器 - 可编码
+        template <template<class, class> class A, class B, class C, std::enable_if_t<std::is_base_of<Codable, B>::value, int> = 0> inline
+        void decode(const char* key, A<B, C>* ret)
+        {
+            const auto& arr = (*_doc)[key].GetArray();
+            auto size = arr.Size();
+            ret->resize(size);
+            for (int i=0; i<size; i++)
+            {
+                Value& o = arr[i]; // object
+//                assert(o.IsObject());
+                
+                JsonDecoder decoder((Document*)&o, true);
+                if (!(*ret)[i].initWithCoder(&decoder)) {
+                    assert(!"error");
+                    return;
+                }
+            }
+        }
         
     private:
         
@@ -263,7 +243,7 @@ namespace coding {
     };
     
     //////////////////////////////////////////////////////////////////////////
-    // Coder转发实现
+    // Coder & Decoder 转发实现
     template<typename T> inline
     void Coder::encode(const T& value, const char* key)
     {
@@ -278,29 +258,15 @@ namespace coding {
     }
     
     template<typename T> inline
-    T Decoder::decode(const char* key)
+    void Decoder::decode(const char* key, T* ret)
     {
         JsonDecoder* coder = dynamic_cast<JsonDecoder*>(this);
         if (coder)
         {
-            return coder->decode<T>(key);
+            coder->decode(key, ret);
+            return;
         }
         
         assert(!"error!");
-        return T();
     }
-    
-    template<typename T> inline
-    T* Decoder::decodeAsPtr(const char* key)
-    {
-        JsonDecoder* coder = dynamic_cast<JsonDecoder*>(this);
-        if (coder)
-        {
-            return coder->decodeAsPtr<T>(key);
-        }
-        
-        assert(!"error!");
-        return 0;
-    }
-    //////////////////////////////////////////////////////////////////////////
 };
