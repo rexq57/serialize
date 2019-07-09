@@ -8,12 +8,6 @@ namespace coding {
         void encode(const T& value, const char* key);
     };
     
-    template<typename T> struct is_shared_ptr : std::false_type {};
-    template<typename T> struct is_shared_ptr<std::shared_ptr<T>> : std::true_type {};
-    
-//    template< class T >
-//    struct is_shared_ptr : is_shared_ptr2<T> {};
-    
     class Decoder {
     public:
         template<typename A, typename T> inline
