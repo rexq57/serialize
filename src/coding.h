@@ -25,42 +25,24 @@ namespace coding {
         virtual bool initWithCoder(Decoder* decoder) = 0;
     };
     
-    template<typename A, typename T> inline
-    void encode(Coder* x, const T& value, const char* key)
-    {
-        ((A*)x)->encode(value, key);
-    }
-    
-    template<typename A, typename T> inline
-    T decode(Decoder* x, const char* key)
-    {
-        return ((A*)x)->template decode<T>(key);
-    }
-    
-    template<typename A, typename T> inline
-    T* decodeAsPtr(Decoder* x, const char* key)
-    {
-        return ((A*)x)->template decodeAsPtr<T>(key);
-    }
-    
     //////////////////////////////////////////////////////////////////////////
     // Coder转发实现
     template<typename A,typename T> inline
     void Coder::encode(const T& value, const char* key)
     {
-        coding::encode<A>(this, value, key);
+        ((A*)this)->encode(value, key);
     }
     
     template<typename A, typename T> inline
     T Decoder::decode(const char* key)
     {
-        return coding::decode<A, T>(this, key);
+        return ((A*)this)->template decode<T>(key);
     }
     
     template<typename A, typename T> inline
     T* Decoder::decodeAsPtr(const char* key)
     {
-        return coding::decodeAsPtr<A, T>(this, key);
+        return ((A*)this)->template decodeAsPtr<T>(key);
     }
     
     //////////////////////////////////////////////////////////////////////////
