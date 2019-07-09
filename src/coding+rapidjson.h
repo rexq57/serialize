@@ -14,6 +14,17 @@ namespace coding {
     
     using namespace rapidjson;
     
+    // 直接读写
+    template< class T >
+    struct is_normal
+    : std::integral_constant<
+    bool,
+    std::is_integral<typename std::remove_cv<T>::type>::value ||
+    std::is_floating_point<typename std::remove_cv<T>::type>::value ||
+    std::is_same<char, typename std::remove_cv<T>::type>::value ||
+    std::is_same<char*, typename std::remove_cv<T>::type>::value
+    > {};
+    
     class JsonCoder: public Coder {
         
     public:
@@ -35,26 +46,54 @@ namespace coding {
             }
         }
         
-        template<typename T, std::enable_if_t<!std::is_base_of<Codable, T>::value, int> = 0> inline
+        // 常规类型
+        template<typename T, std::enable_if_t<is_normal<T>::value, int> = 0> inline
         void encode(const T& value, const char* key){
-            _addValue(value, key);
+            _addValue(node(), Value().Set(value), key);
         };
         
+        // 可编码
         template<typename T, std::enable_if_t<std::is_base_of<Codable, T>::value, int> = 0> inline
         void encode(const T& value, const char* key)
         {
             JsonCoder coder(_doc);
             value.encodeWithCoder(&coder);
             
-            obj()->AddMember(Value().SetString(key, (unsigned int)strlen(key)), *coder.obj(), allocator());
-            
-            _rebuildBuffer = true;
+            _addValue(node(), *coder.node(), key);
         }
         
-        template <>
+        // std字符串
+        inline
         void encode(const std::string& str, const char* key)
         {
-            _addValue(str.c_str(), key);
+            _addValue(node(), Value().Set(str.c_str()), key);
+        }
+        
+        // 数组容器 - 常规
+        template <template<class, class> class A, class B, class C, std::enable_if_t<is_normal<B>::value, int> = 0> inline
+        void encode(const A<B, C>& vec, const char* key)
+        {
+            Value arr(kArrayType);
+            for (auto& v : vec)
+            {
+                _pushBack(&arr, v);
+            }
+            _addValue(node(), arr, key);
+        }
+        
+        // 数组容器 - 可编码
+        template <template<class, class> class A, class B, class C, std::enable_if_t<std::is_base_of<Codable, B>::value, int> = 0> inline
+        void encode(const A<B, C>& vec, const char* key)
+        {
+            Value arr(kArrayType);
+            for (auto& v : vec)
+            {
+                JsonCoder coder(_doc);
+                v.encodeWithCoder(&coder);
+                
+                _pushBack(&arr, *coder.node());
+            }
+            _addValue(node(), arr, key);
         }
         
         const char* string()
@@ -64,7 +103,7 @@ namespace coding {
             {
                 buffer.Clear();
                 rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-                doc()->Accept(writer);
+                d()->Accept(writer);
                 _rebuildBuffer = false;
             }
             
@@ -80,7 +119,12 @@ namespace coding {
             _obj = new Value(kObjectType);
         };
         
-        inline Value* obj()
+        inline Document::AllocatorType& allocator()
+        {
+            return _doc->GetAllocator();
+        }
+        
+        inline Value* node()
         {
             if (_obj)
                 return _obj;
@@ -89,31 +133,25 @@ namespace coding {
             return _doc;
         }
         
-        inline Document::AllocatorType& allocator()
-        {
-            return _doc->GetAllocator();
-        }
-        
-        inline Document* doc()
+        inline Document* d()
         {
             return _doc;
         }
         
+        // value
         template<typename T>
-        void _addValue(const T& value, const char* key)
+        void _addValue(Value* obj, T& value, const char* key)
         {
-            _getValue(key).Set(value);
+            if (obj->HasMember(key)) assert(!"已经存在！会导致该键重复存在于json中！");
+            
+            obj->AddMember(Value().SetString(key, (unsigned int)strlen(key)), value, allocator());
             _rebuildBuffer = true;
         }
-        
-        Value& _getValue(const char* key) {
-            Value* o = obj();
-            
-            if (o->HasMember(key)) assert(!"已经存在！会导致该键重复存在于json中！");
-            
-            o->AddMember(Value().SetString(key, (unsigned int)strlen(key)), Value(), allocator());
-            
-            return (*o)[key];
+
+        template<typename T>
+        void _pushBack(Value* arr, T& value)
+        {
+            arr->PushBack(value, allocator());
         }
         
         bool _rebuildBuffer = true;
@@ -148,8 +186,8 @@ namespace coding {
         template<typename T, std::enable_if_t<std::is_base_of<Codable, T>::value, int> = 0> inline
         T decode(const char* key)
         {
-            T* value = decodeAsPtr<T>(key);
-            return *value;
+            auto value = std::shared_ptr<T>(decodeAsPtr<T>(key));
+            return *value.get();
         }
         
         template<typename T, std::enable_if_t<!std::is_base_of<Codable, T>::value
@@ -179,11 +217,34 @@ namespace coding {
             return obj;
         }
         
-        template<typename T, std::enable_if_t<std::is_same<const char*, T>::value || std::is_same<std::string, T>::value, int> = 0>
+        template<typename T, std::enable_if_t<std::is_same<const char*, T>::value || std::is_same<std::string, T>::value, int> = 0> inline
         const char* decode(const char* key)
         {
             return (*_doc)[key].GetString();
         }
+        
+        template <template<class, class> class A, class B, class C> inline
+        A<B, C> decode(const char* key)
+        {
+            auto value = std::shared_ptr<A<B,C>>(decodeAsPtr<A<B,C>>(key));
+            return *value.get();
+        }
+        
+//        template <template<class, class> class A, class B, class C> inline
+//        A<B, C>* decodeAsPTR(const char* key)
+//        {
+//            A<B, C>* ret = new A<B, C>();
+//
+//            const auto& arr = (*_doc)[key].GetArray();
+//            auto size = arr.Size();
+//            ret.resize(size);
+//            for (int i=0; i<size; i++)
+//            {
+//                ret[i] = arr[0];
+//            }
+//
+//            return ret;
+//        }
         
     private:
         
