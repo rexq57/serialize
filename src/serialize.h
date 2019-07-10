@@ -293,27 +293,7 @@ namespace serialize {
         }
     }
     
-    // vector
-//    template <template<class, class> class A, class B, class C>
-//    inline
-//    void serialize(OutEngine& x, const A<B, C>& a) {
-//        x << (int)a.size();
-//        for (auto& t : a) {
-//            x << t;
-//        }
-//    }
-//
-//    template <template<class, class> class A, class B, class C>
-//    inline
-//    void deserialize(InEngine& x, A<B, C>* c) {
-//        int size;
-//        x >> size;
-//        c->resize(size);
-//        for (int i=0; i<size; i++) {
-//            x >> (*c)[i];
-//        }
-//    }
-    
+    // vector    
     template <template<class, class> class A, class B, class C, std::enable_if_t<!is_normal<B>::value, int> = 0>
     inline
     void serialize(OutEngine& x, const A<B, C>& a) {

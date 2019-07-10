@@ -93,7 +93,7 @@ boost 3.255476s
 
 using namespace serialize;
 
-class cbox : public Serializable
+class cboxsub : public Serializable
 {
 public:
     int a;
@@ -101,6 +101,25 @@ public:
     std::string str;
     
     SERIALIZE_3(a, b, str)
+};
+
+class cbox : public Serializable
+{
+public:
+    int a;
+    double b;
+    std::string str;
+    cboxsub *sub;
+    
+    cbox()
+    {
+        sub = new cboxsub();
+        sub->a = 10;
+        sub->b = 11.0f;
+        sub->str = "I'm cboxsub";
+    }
+    
+    SERIALIZE_4(a, b, str, *sub)
 };
 ``````
 
