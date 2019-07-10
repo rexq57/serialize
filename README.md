@@ -146,10 +146,8 @@ oe.resize(1024);
 支持的序列化类型
 
 ``````
-int
-long
-float
-double
+integer
+float_point
 char
 std::string
 std::vector
