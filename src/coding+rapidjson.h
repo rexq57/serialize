@@ -27,6 +27,39 @@ namespace coding {
     std::is_same<char*, typename std::remove_cv<T>::type>::value
     > {};
     
+    
+    
+//    // 数组容器 - 常规
+//    template <template<class, class> class A, class B, class C, std::enable_if_t<is_normal<B>::value, int> = 0> inline
+//    void ToValue(const A<B, C>& val, Value* value)
+//    {
+//        Value arr(kArrayType);
+//        for (auto& v : vec)
+//        {
+//            _pushBack(&arr, v);
+//        }
+//        _addValue(node(), arr, key);
+//    }
+//    
+//    // 数组容器 - 可编码
+//    template <template<class, class> class A, class B, class C, std::enable_if_t<std::is_base_of<Codable, B>::value, int> = 0> inline
+//    void encode(const A<B, C>& vec, const char* key)
+//    {
+//        Value arr(kArrayType);
+//        for (auto& v : vec)
+//        {
+//            JsonCoder coder(_doc);
+//            v.encodeWithCoder(&coder);
+//            
+//            _pushBack(&arr, *coder.node());
+//        }
+//        _addValue(node(), arr, key);
+//    }
+    
+    
+    
+    
+    
     class JsonCoder: public Coder {
         
     public:
@@ -44,52 +77,52 @@ namespace coding {
         // 常规类型
         template<typename T, std::enable_if_t<is_normal<T>::value, int> = 0> inline
         void encode(const T& value, const char* key){
-            _addValue(node(), Value().Set(value), key);
+            _addValue(node(), value, key);
         };
         
         // 可编码
         template<typename T, std::enable_if_t<std::is_base_of<Codable, T>::value, int> = 0> inline
         void encode(const T& value, const char* key)
         {
-            JsonCoder coder(_doc);
-            value.encodeWithCoder(&coder);
-            
-            _addValue(node(), *coder.node(), key);
+            _addValue(node(), value, key);
         }
         
         // std字符串
         inline
         void encode(const std::string& str, const char* key)
         {
-            _addValue(node(), Value().Set(str.c_str()), key);
+            _addValue(node(), str, key);
         }
         
         // 数组容器 - 常规
         template <template<class, class> class A, class B, class C, std::enable_if_t<is_normal<B>::value, int> = 0> inline
         void encode(const A<B, C>& vec, const char* key)
         {
-            Value arr(kArrayType);
-            for (auto& v : vec)
-            {
-                _pushBack(&arr, v);
-            }
-            _addValue(node(), arr, key);
+            _addValue(node(), vec, key);
         }
         
         // 数组容器 - 可编码
         template <template<class, class> class A, class B, class C, std::enable_if_t<std::is_base_of<Codable, B>::value, int> = 0> inline
         void encode(const A<B, C>& vec, const char* key)
         {
-            Value arr(kArrayType);
-            for (auto& v : vec)
-            {
-                JsonCoder coder(_doc);
-                v.encodeWithCoder(&coder);
-                
-                _pushBack(&arr, *coder.node());
-            }
-            _addValue(node(), arr, key);
+            _addValue(node(), vec, key);
         }
+        
+        // 字典容器 - 常规
+        template <template<class, class, class, class> class A, class B, class C, class D, class E>
+        inline
+        void encode(const A<B, C, D, E>& map, const char* key)
+        {
+            _addValue(node(), map, key);
+        }
+
+        // 字典容器 - 可编码
+//        template <template<class, class, class, class> class A, class B, class C, class D, class E, std::enable_if_t<std::is_base_of<Codable, B>::value, int> = 0>
+//        inline
+//        void encode(const A<B, C, D, E>& map, const char* key)
+//        {
+//            _addValue(node(), map, key);
+//        }
         
         const char* string()
         {
@@ -106,6 +139,92 @@ namespace coding {
         }
         
     private:
+        
+        template <typename T, std::enable_if_t<std::is_integral<T>::value || std::is_floating_point<T>::value, int> = 0>
+        void ToKeyString(const T& value, Value* ret)
+        {
+            ret->Set(std::to_string(value).c_str(), allocator());
+        }
+        
+        void ToKeyString(const std::string& value, Value* ret)
+        {
+            ret->Set(value.c_str(), allocator());
+        }
+        
+        // 常规类型
+        template<typename T, std::enable_if_t<is_normal<T>::value, int> = 0> inline
+        void ToValue(const T& val, Value* value)
+        {
+            value->Set(val);
+        };
+        
+        // 可编码
+        template<typename T, std::enable_if_t<std::is_base_of<Codable, T>::value, int> = 0> inline
+        void ToValue(const T& val, Value* value)
+        {
+            JsonCoder coder(_doc);
+            val.encodeWithCoder(&coder);
+            
+            *value = *coder.node();
+        }
+        
+        // std字符串
+        inline
+        void ToValue(const std::string& val, Value* value)
+        {
+            value->Set(val.c_str());
+        }
+        
+        // 数组容器 - 常规
+        template <template<class, class> class A, class B, class C, std::enable_if_t<is_normal<B>::value, int> = 0> inline
+        void ToValue(const A<B, C>& vec, Value* value)
+        {
+            value->SetArray();
+            for (auto& v : vec)
+            {
+                _pushBack(value, v);
+            }
+        }
+        
+        // 数组容器 - 可编码
+        template <template<class, class> class A, class B, class C, std::enable_if_t<std::is_base_of<Codable, B>::value, int> = 0> inline
+        void ToValue(const A<B, C>& vec, Value* value)
+        {
+            value->SetArray();
+            for (auto& v : vec)
+            {
+                JsonCoder coder(_doc);
+                v.encodeWithCoder(&coder);
+                
+                _pushBack(value, *coder.node());
+            }
+        }
+        
+        // 字典容器 - 常规
+        template <template<class, class, class, class> class A, class B, class C, class D, class E>
+        inline
+        void ToValue(const A<B, C, D, E>& map, Value* value)
+        {
+            value->SetObject();
+            for (auto& it : map)
+            {
+                _addValue(value, it.second, it.first);
+            }
+        }
+        
+        // 字典容器 - 可编码
+//        template <template<class, class, class, class> class A, class B, class C, class D, class E, std::enable_if_t<std::is_base_of<Codable, B>::value, int> = 0>
+//        inline
+//        void encode(const A<B, C, D, E>& map, Value* value)
+//        {
+//            for (auto& it : map)
+//            {
+//                JsonCoder coder(_doc);
+//                it.second.encodeWithCoder(&coder);
+//
+//                _addValue(value, *coder.node(), it.first);
+//            }
+//        }
         
         JsonCoder(Document* doc) {
             assert(doc);
@@ -130,12 +249,22 @@ namespace coding {
         inline Document* d() { return _doc; }
         
         // value
-        template<typename T>
-        void _addValue(Value* obj, T& value, const char* key)
+        template<typename T, typename T1>
+        void _addValue(Value* obj, const T& val, const T1& key)
         {
-            if (obj->HasMember(key)) assert(!"已经存在！会导致该键重复存在于json中！");
+            // 只支持kStringType
+            Value keyValue;
+            ToKeyString(key, &keyValue);
             
-            obj->AddMember(Value().SetString(key, (unsigned int)strlen(key)), value, allocator());
+            if (obj->HasMember(keyValue)) assert(!"已经存在！会导致该键重复存在于json中！");
+            
+            Value value;
+            ToValue(val, &value);
+            
+            obj->AddMember(keyValue, value, allocator());
+            // 未立即存储字符串，如果是临时字符串，会导致引用错误
+//            obj->AddMember(Value().SetString(key, (unsigned int)strlen(key)), value, allocator());
+//            obj->AddMember(Value().Set(key), value, allocator());
             _rebuildBuffer = true;
         }
 
@@ -220,7 +349,7 @@ namespace coding {
             for (int i=0; i<size; i++)
             {
                 Value& o = arr[i]; // object
-//                assert(o.IsObject());
+                // assert(o.IsObject());
                 
                 JsonDecoder decoder((Document*)&o, true);
                 if (!(*ret)[i].initWithCoder(&decoder)) {
@@ -230,7 +359,45 @@ namespace coding {
             }
         }
         
+        // 字典容器 - 常规
+        template <template<class, class, class, class> class A, class B, class C, class D, class E>
+        inline
+        void decode(const char* key,  A<B, C, D, E>* ret)
+        {
+            const auto& map = (*_doc)[key].GetObject();
+            for (auto& it : map)
+            {
+                std::pair<B, C> p;
+                ToValue(it.name, &p.first);
+                ToValue(it.value, &p.second);
+                ret->insert(p);
+            }
+        }
+        
     private:
+        
+        template<typename T, std::enable_if_t<std::is_integral<T>::value, int> = 0> inline
+        void ToValue(Value& value, T* ret)
+        {
+            if (value.IsString())
+                *ret = std::stoi(value.GetString());
+            else
+                *ret = value.Get<T>();
+        }
+        
+        template<typename T, std::enable_if_t<std::is_floating_point<T>::value, int> = 0> inline
+        void ToValue(Value& value, T* ret)
+        {
+            if (value.IsString())
+                *ret = std::stof(value.GetString());
+            else
+                *ret = value.Get<T>();
+        }
+        
+        void ToValue(Value& value, std::string* ret)
+        {
+            *ret = value.Get<const char*>();
+        }
         
         JsonDecoder(Document* doc, bool assign=false)
         {
