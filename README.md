@@ -109,7 +109,7 @@ public:
     int a;
     double b;
     std::string str;
-    cboxsub *sub;
+    cboxsub *sub; // 如果要使用指针，则必须保证其不是野指针
     
     cbox()
     {
