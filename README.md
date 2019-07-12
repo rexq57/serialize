@@ -160,10 +160,11 @@ oe.resize(1024);
 integer
 float_point
 char
+Serializable
+std::shared_ptr<Serializable>
 std::string
 std::vector
 std::map
-std::shared_ptr<Serializable>
 ``````
 
 如果需要增加更多类型的支持，重新实现下列函数即可
