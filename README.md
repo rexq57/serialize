@@ -109,17 +109,9 @@ public:
     int a;
     double b;
     std::string str;
-    cboxsub *sub; // 如果要使用指针，则必须保证其不是野指针
+    std::shared_ptr<cboxsub> sub;
     
-    cbox()
-    {
-        sub = new cboxsub();
-        sub->a = 10;
-        sub->b = 11.0f;
-        sub->str = "I'm cboxsub";
-    }
-    
-    SERIALIZE_4(a, b, str, *sub)
+    SERIALIZE_4(a, b, str, sub)
 };
 ``````
 
@@ -171,6 +163,7 @@ char
 std::string
 std::vector
 std::map
+std::shared_ptr<Serializable>
 ``````
 
 如果需要增加更多类型的支持，重新实现下列函数即可

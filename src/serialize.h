@@ -6,6 +6,8 @@
 
 namespace serialize {
     
+    
+    
     class OutEngine
     {
     public:
@@ -158,6 +160,11 @@ namespace serialize {
     //////////////////////////////////////////////////////////////////////////
     // 支持的数据类型匹配
     
+    namespace detect {
+        template<typename T> struct is_shared_ptr : std::false_type {};
+        template<typename T> struct is_shared_ptr<std::shared_ptr<T>> : std::true_type {};
+    };
+    
 #ifdef _WIN32
     //        little = 0,
     //        big    = 1,
@@ -250,7 +257,40 @@ namespace serialize {
     template<typename T, std::enable_if_t<is_Serializable<T>::value, int> = 0> inline
     void deserialize(InEngine& x, T* a)
     {
-        return a->deserialize(x);
+        a->deserialize(x);
+    }
+    
+    // 可编码指针
+    template<typename T, std::enable_if_t<
+    (std::is_pointer<T>::value && std::is_base_of<Serializable, typename std::remove_pointer<T>::type>::value)  // 常规指针
+        || (std::is_base_of<Serializable, typename T::element_type>::value && detect::is_shared_ptr<T>::value)  // 智能指针
+    , int> = 0> inline
+    void serialize(OutEngine& x, const T ptr)
+    {
+        // 写入指针是否有效的标记，1字节
+        bool mark = ptr != 0 && ptr.get() != 0;
+        x.write(&mark, 1);
+        
+        if (!mark) // 不操作NULL指针
+            return;
+        
+        ptr->serialize(x);
+    }
+    
+    template <typename T, std::enable_if_t<std::is_base_of<Serializable, T>::value, int> = 0> // 智能指针
+    void deserialize(InEngine& x, std::shared_ptr<T>* ptr)
+    {
+        // 检查是否有效，无效，则跳过
+        bool mark;
+        x.read(&mark, 1);
+        if (!mark)
+            return;
+        
+        // 对智能指针做重写入
+        //*ptr = std::shared_ptr<typename T::element_type>(new typename T::element_type());
+        *ptr = std::shared_ptr<T>(new T());
+
+        (*ptr)->deserialize(x);
     }
     
     //////////////////////////////////////////////////////////////////////////
